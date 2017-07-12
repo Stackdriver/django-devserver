@@ -3,6 +3,7 @@ from django.core.management.commands.runserver import Command as BaseCommand
 from django.core.management.base import CommandError, handle_default_options
 from django.core.servers.basehttp import WSGIServer
 from django.core.handlers.wsgi import WSGIHandler
+from django.utils import autoreload
 
 import os
 import sys
@@ -57,7 +58,11 @@ class Command(BaseCommand):
         make_option(
             '--wsgi-app', dest='wsgi_app', default=None,
             help='Load the specified WSGI app as the server endpoint.'),
+        make_option(
+            '--noreload', action='store_false', dest='use_reloader', default=True,
+            help='Tells Django to NOT use the auto-reloader.')
     )
+
     if any(map(lambda app: app in settings.INSTALLED_APPS, STATICFILES_APPS)):
         option_list += make_option(
             '--nostatic', dest='use_static_files', action='store_false', default=True,
@@ -122,6 +127,18 @@ class Command(BaseCommand):
             handler = StaticFilesHandler(handler)
 
         return handler
+
+    def run(self, **options):
+        """
+        Runs the server, using autoloader if needed
+        """
+
+        use_reloader = options.get('use_reloader')
+
+        if use_reloader:
+          autoreload.main(self.inner_run, None, options)
+        else:
+          self.inner_run(None, **options)
 
     def inner_run(self, *args, **options):
         # Flag the server as active
